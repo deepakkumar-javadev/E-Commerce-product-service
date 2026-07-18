@@ -1,0 +1,20 @@
+server:
+  port: 8083
+
+# Application Name
+spring:
+  application:
+    name: MACY-PRODUCT-SERVICE
+
+  # Database Configuration
+  datasource:
+    url: jdbc:mysql://localhost:3306/productdb
+    username: root
+    password: Deepak@87083
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+   
