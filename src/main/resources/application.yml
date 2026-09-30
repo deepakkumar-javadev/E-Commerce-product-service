@@ -4,11 +4,11 @@ server:
 # Application Name
 spring:
   application:
-    name: MACY-PRODUCT-SERVICE
+    name: ECOM-PRODUCT-SERVICE
 
   # Database Configuration
   datasource:
-    url: jdbc:mysql://localhost:3306/productdb
+    url: jdbc:mysql://localhost:3306/ecomproductdb
     username: root
     password: Deepak@87083
 
@@ -17,4 +17,29 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-   
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: always
+
+# Application Information
+info:
+  app:
+    name: ECOM-PRODUCT-SERVICE
+    description: Ecommerce Product Microservice
+    version: 1.0.0

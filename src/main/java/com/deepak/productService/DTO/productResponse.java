@@ -17,5 +17,6 @@ public class productResponse {
     private String availabilitystatus;
 	private int stockQuantity;
 	private String discription;
+	private String skuCode;
 
 }

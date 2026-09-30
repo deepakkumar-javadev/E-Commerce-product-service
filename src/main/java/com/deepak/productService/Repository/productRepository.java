@@ -15,17 +15,27 @@ import org.springframework.stereotype.Repository;
 import com.deepak.productService.entity.product;
 
 @Repository
-public interface productRepository extends JpaRepository<product,Integer>{
+public interface productRepository extends JpaRepository<product, Integer> {
 
-	// for practice  Alternative  method findById();
-	public product  getProductByProductId(Long productid);
+	// for practice Alternative method findById();
+	public product getProductByProductId(Long productid);
+
 	
-	public product findByName(String name);
-	
+
 	public List<product> findByCategory(String category);
-	
+
 	public List<product> findByPrice(double price);
-	
+
 	public Optional<product> findBySkuCode(String skuCode);
+
+	// CHECK DUPLICATE PRODUCT EXISTANCE
+	boolean existsByNameAndBrandAndCategory(String name, String brand, String category);
+
+	// search product 
 	
+	List<product> findByNameContainingIgnoreCase(String name);
+
+	List<product> findByCategoryIgnoreCase(String category);
+	List<product> findByNameContainingIgnoreCaseAndCategoryIgnoreCase(String name, String category);
+
 }

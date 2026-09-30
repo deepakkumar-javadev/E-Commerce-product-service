@@ -3,7 +3,8 @@ package com.deepak.productService.DTO;
 import lombok.Data;
 
 @Data
-public class productRequest {
+public class UpdateRequest {
+
 
 	private String name;
 	private double price;
@@ -11,7 +12,5 @@ public class productRequest {
 	private String color;
 	private String size;
 	private String category;
-	private Integer Quantity;
 	private String description;
-	
 }

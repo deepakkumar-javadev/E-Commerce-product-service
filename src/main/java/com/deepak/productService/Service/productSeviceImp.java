@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.deepak.productService.Client.InventoryClient;
 import com.deepak.productService.DTO.InventoryRequest;
 import com.deepak.productService.DTO.InventoryResDto;
+import com.deepak.productService.DTO.UpdateRequest;
 import com.deepak.productService.DTO.productRequest;
 import com.deepak.productService.DTO.productResponse;
 import com.deepak.productService.DTO.productResponseUser;
@@ -27,18 +28,14 @@ public class productSeviceImp implements productService {
 	private final productRepository repo; // dependency provided throgh costructor injection ...
 	private final InventoryClient invClient;
 
-	// ***** use lombok annotation which become constructor automatically
-//	public productSeviceImp(productRepository repo,InventoryClient invClient) {
-//		super();
-//		this.repo = repo;
-//		this.invClient=invClient;
-//	}
-
 	// Logic to Add products
 	@Override
 	public String createProduct(productRequest req) {
 
-		// dto data bind with entity to store in db
+		// check existance of product
+		if (repo.existsByNameAndBrandAndCategory(req.getName(), req.getBrand(), req.getCategory())) {
+			return "Product already exists";
+		}
 
 		// getsku code
 		String sku = generateSkuCode(req);
@@ -53,9 +50,8 @@ public class productSeviceImp implements productService {
 		p.setColor(req.getColor());
 		p.setRating(5);
 		p.setCreatedAt(LocalDateTime.now());
-
-		// save product | again to get the generated product id from product table to
-		// that i can add Pid in Sku for unique sku
+		p.setDescription(req.getDescription());
+		// save product
 		p.setSkuCode(sku);
 
 		repo.save(p);
@@ -64,7 +60,7 @@ public class productSeviceImp implements productService {
 		InventoryRequest invReqDto = new InventoryRequest();
 
 		invReqDto.setSkuCode(p.getSkuCode()); // comming from product db..
-		invReqDto.setStockQuantity(req.getStockQuantity());// comming from productRequest
+		invReqDto.setStockQuantity(req.getQuantity());// comming from productRequest
 
 		invClient.createInventory(invReqDto);
 
@@ -76,27 +72,26 @@ public class productSeviceImp implements productService {
 	public List<productResponse> getAllproduct() {
 		// get all productList from productEntity
 		List<product> allproduct = repo.findAll();
-					if(allproduct == null) {
-						throw new RuntimeException("No product exists...");
-					}
-		
+		if (allproduct == null) {
+			throw new RuntimeException("No product exists...");
+		}
+
 		// 2. Sabhi SKU Codes nikalo
 		List<String> skuCodes = allproduct.stream().map(product::getSkuCode).toList();
 
-		// 3. Inventory Service ko ek hi API call   | getting all inventory table data in List
+		// 3. Inventory Service ko ek hi API call | getting all inventory table data in
+		// List
 		List<InventoryResDto> inventories = invClient.getInventories(skuCodes);
 
-		// 4. converting data in key : value  | key= skucode  : value= InventoryResDto object ...
+		// 4. converting data in key : value | key= skucode : value= InventoryResDto
+		// object ...
 		Map<String, InventoryResDto> inventoryMap = inventories.stream()
 				.collect(Collectors.toMap(InventoryResDto::getSkuCode, // skucode
 						i -> i // inventoryResDto object
 				));
 
-		//5 bind inventoryDtoRes to productDtoRes
-		
-		
+		// 5 bind inventoryDtoRes to productDtoRes
 		List<productResponse> list = allproduct.stream().map(p -> {
-			// get product data from entity & set ProductResposne 
 			productResponse res = new productResponse();
 
 			res.setProductid(p.getProductId());
@@ -107,18 +102,15 @@ public class productSeviceImp implements productService {
 			res.setColor(p.getColor());
 			res.setSize(p.getSize());
 			res.setDiscription(p.getDescription());
-			// show some inventory data for each product
+			res.setSkuCode(p.getSkuCode()); // 👈 YE LINE ADD KARO
 
 			InventoryResDto inventoryresDto = inventoryMap.get(p.getSkuCode());
 
 			if (inventoryresDto != null) {
-
 				res.setStockQuantity(inventoryresDto.getStockQuantity());
 				res.setAvailabilitystatus(inventoryresDto.getStockQuantity() > 0 ? "In_Stock" : "Out_Of_Stock");
-				
 			}
 
-			// return ProductResponse
 			return res;
 
 		}).toList();
@@ -131,10 +123,10 @@ public class productSeviceImp implements productService {
 	public productResponse getProductById(Long productid) {
 		// get product in entity form
 		product p = repo.getProductByProductId(productid);
-			if(p==null) {
-				throw new RuntimeException("product not found with id : " + productid);
-			}
-		
+		if (p == null) {
+			throw new RuntimeException("product not found with id : " + productid);
+		}
+
 		// for acces invClient data we need objo of client
 
 		InventoryResDto inventoryresDto = invClient.getInventorystock(p.getSkuCode());
@@ -147,17 +139,17 @@ public class productSeviceImp implements productService {
 		res.setBrand(p.getBrand());
 		res.setPrice(p.getPrice());
 		res.setCategory(p.getCategory());
-		res.setAvailabilitystatus(inventoryresDto.getAvailabilitystatus());
-
+		res.setAvailabilitystatus(inventoryresDto.getAvailablityStatus());
+		res.setSkuCode(p.getSkuCode());
 		return res;
 	}
 
 	// Logic TO updateProduct
 	@Override
-	public productResponse updateProduct(Long productid, productRequest req) {
+	public productResponse updateProduct(Long productid, UpdateRequest req) {
 		// 1 get perticuler product where you want to make some changes;
 		product product = repo.getProductByProductId(productid);
-		if(product==null) {
+		if (product == null) {
 			throw new RuntimeException("product not found with id : " + productid);
 		}
 		// 2 update data in exiting data
@@ -165,7 +157,9 @@ public class productSeviceImp implements productService {
 		product.setPrice(req.getPrice());
 		product.setBrand(req.getBrand());
 		product.setCategory(req.getCategory());
-		// product.setStockQuantity(req.getStockQuantity());
+		product.setColor(req.getColor());
+		product.setSize(req.getSize());
+		product.setDescription(req.getDescription());
 
 		// 3 save updated data in repository...
 		product updatedProduct = repo.save(product);
@@ -179,8 +173,50 @@ public class productSeviceImp implements productService {
 		res.setBrand(updatedProduct.getBrand());
 		res.setPrice(updatedProduct.getPrice());
 		res.setCategory(updatedProduct.getCategory());
+		res.setColor(updatedProduct.getColor());
+		res.setSize(updatedProduct.getSize());
+		res.setSkuCode(updatedProduct.getSkuCode());
+		return res;
+	}
+
+	// update product price
+
+	@Override
+	public productResponse updateProductprice(Long productId, productRequest req) {
+
+		product product = repo.getProductByProductId(productId);
+
+		if (product == null) {
+			throw new RuntimeException("product not found with id : " + productId);
+		}
+
+		if (req.getName() != null) {
+			product.setName(req.getName());
+		}
+
+		if (req.getPrice() != 0) {
+			product.setPrice(req.getPrice());
+		}
+
+		if (req.getBrand() != null) {
+			product.setBrand(req.getBrand());
+		}
+
+		if (req.getCategory() != null) {
+			product.setCategory(req.getCategory());
+		}
+
+		product updatedProduct = repo.save(product);
+
+		productResponse res = new productResponse();
+		res.setProductid(updatedProduct.getProductId());
+		res.setName(updatedProduct.getName());
+		res.setBrand(updatedProduct.getBrand());
+		res.setPrice(updatedProduct.getPrice());
+		res.setCategory(updatedProduct.getCategory());
 
 		return res;
+
 	}
 
 	// Logic to Delete product
@@ -188,7 +224,7 @@ public class productSeviceImp implements productService {
 	public String deleteProduct(Long productid) {
 		// get product details from repo
 		product product = repo.getProductByProductId(productid);
-		if(product==null) {
+		if (product == null) {
 			throw new RuntimeException("product not found with id : " + productid);
 		}
 		// pass product to delete
@@ -197,25 +233,67 @@ public class productSeviceImp implements productService {
 		return "product deleted successfully..";
 	}
 
-	// logic for getproductByName
+	// logic for getproductByNameandcategory
 	@Override
-	public productResponse getProductByName(String name) {
+	public List<productResponse> getProductByNameAndCategory(String name, String category) {
 
-		product p = repo.findByName(name);
+		List<product> products;
 
-		if (p == null) {
-			throw new RuntimeException("Product not found with name : " + name);
+		if (name != null && !name.isBlank() && category != null && !category.isBlank()) {
+
+			// Partial name + category search
+			products = repo.findByNameContainingIgnoreCaseAndCategoryIgnoreCase(name, category);
+
+		} else if (name != null && !name.isBlank()) {
+
+			// Partial name search
+			products = repo.findByNameContainingIgnoreCase(name);
+
+		} else if (category != null && !category.isBlank()) {
+
+			// Category search
+			products = repo.findByCategoryIgnoreCase(category);
+
+		} else {
+
+			// No filter
+			products = repo.findAll();
 		}
 
-		// if product found in repo
+		if (products.isEmpty()) {
+			throw new RuntimeException("Product not found with name : " + name + " and category : " + category);
+		}
 
-		productResponse resp = new productResponse();
-		resp.setName(p.getName());
-		resp.setBrand(p.getBrand());
-		resp.setCategory(p.getCategory());
-		resp.setPrice(p.getPrice());
+		List<productResponse> responseList = new ArrayList<>();
 
-		return resp;
+		for (product p : products) {
+
+			System.out.println("Product ID = " + p.getProductId());
+			System.out.println("Product Name = " + p.getName());
+			System.out.println("SKU Code = " + p.getSkuCode());
+
+			InventoryResDto inventory = invClient.getInventorystock(p.getSkuCode());
+
+			productResponse resp = new productResponse();
+
+			resp.setProductid(p.getProductId());
+			resp.setName(p.getName());
+			resp.setBrand(p.getBrand());
+			resp.setCategory(p.getCategory());
+			resp.setPrice(p.getPrice());
+			resp.setColor(p.getColor());
+			resp.setSize(p.getSize());
+
+			// resp.setStockQuantity(inventory.getStockQuantity());
+
+			resp.setAvailabilitystatus(inventory.getAvailablityStatus());
+
+			resp.setSkuCode(inventory.getSkuCode());
+
+			responseList.add(resp);
+		}
+
+		return responseList;
 	}
 
 	// logic to filter product by category..
@@ -282,10 +360,10 @@ public class productSeviceImp implements productService {
 
 	@Override
 	public productResponseUser fetchproduct(String skucode) {
-						
-		product p1 = repo.findBySkuCode(skucode).orElseThrow(() -> new RuntimeException("product not found....") );
-		InventoryResDto invResDto= invClient.getInventorystock(skucode);
-		if(invResDto ==null) {
+
+		product p1 = repo.findBySkuCode(skucode).orElseThrow(() -> new RuntimeException("product not found...."));
+		InventoryResDto invResDto = invClient.getInventorystock(skucode);
+		if (invResDto == null) {
 			throw new RuntimeException("inventory not found ");
 		}
 		productResponseUser proRes = new productResponseUser();
@@ -296,9 +374,9 @@ public class productSeviceImp implements productService {
 		proRes.setCategory(p1.getCategory());
 		proRes.setSize(p1.getSize());
 		proRes.setStockQuantity(invResDto.getStockQuantity());
-		proRes.setAvailabilitystatus(invResDto.getStockQuantity() > 0 ? "In_Stock":"Out_Of_Stock");
-		
-		return proRes ;
+		proRes.setAvailabilitystatus(invResDto.getStockQuantity() > 0 ? "In_Stock" : "Out_Of_Stock");
+
+		return proRes;
 	}
 
 }
