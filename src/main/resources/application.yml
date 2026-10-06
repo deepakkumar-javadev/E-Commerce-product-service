@@ -9,8 +9,8 @@ spring:
   # Database Configuration
   datasource:
     url: jdbc:mysql://localhost:3306/ecomproductdb
-    username: root
-    password: Deepak@87083
+    username: **********
+    password: *******
 
   # JPA Configuration
   jpa:
